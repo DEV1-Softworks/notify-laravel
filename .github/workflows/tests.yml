@@ -1,0 +1,63 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  phpunit:
+    name: PHPUnit (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["7.4"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: mbstring, json, tokenizer, xml, ctype, dom, intl
+          coverage: xdebug
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache/files
+            vendor
+          key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php${{ matrix.php }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run PHPUnit with coverage
+        run: vendor/bin/phpunit --coverage-clover build/coverage.xml
+
+      - name: Enforce coverage >= 80%
+        run: |
+          php -r '
+          $f = "build/coverage.xml";
+          if (!file_exists($f)) { fwrite(STDERR, "coverage.xml not found\n"); exit(1); }
+          $xml = new SimpleXMLElement(file_get_contents($f));
+          $metrics = $xml->project->metrics;
+          $statements = (int) $metrics["statements"];
+          $covered = (int) $metrics["coveredstatements"];
+          $pct = $statements > 0 ? ($covered / $statements) * 100 : 0;
+          $min = 80.0;
+          printf("Coverage: %.2f%% (covered %d / %d)\n", $pct, $covered, $statements);
+          if ($pct + 1e-9 < $min) { fwrite(STDERR, "Coverage below ${min}% threshold\n"); exit(2); }
+          '

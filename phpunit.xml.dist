@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php" colors="true" verbose="true">
+    <coverage processUncoveredFiles="true">
+        <include>
+        <directory suffix=".php">src</directory>
+        </include>
+        <report>
+        <clover outputFile="build/coverage.xml"/>
+        </report>
+    </coverage>
+    <testsuites>
+        <testsuite name="Notify Laravel Test Suite">
+        <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

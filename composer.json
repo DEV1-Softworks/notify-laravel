@@ -1,0 +1,38 @@
+{
+  "name": "dev1/notify-laravel",
+  "description": "Laravel adapter for DEV1 Notify Core",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Dev1\\NotifyLaravel\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Dev1\\NotifyLaravel\\Tests\\": "tests/"
+    }
+  },
+  "require": {
+    "php": "^7.4|^8.0",
+    "illuminate/support": "^8.0",
+    "illuminate/notifications": "^8.0",
+    "dev1/notify-core": "^1.0",
+    "nyholm/psr7":"^1.8",
+    "symfony/http-client": "^5.3"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^6.29",
+    "phpunit/phpunit": "^9.6"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Dev1\\NotifyLaravel\\NotifyServiceProvider"
+      ],
+      "aliases": {
+        "Notify": "Dev1\\NotifyLaravel\\Facades\\Notify"
+      }
+    }
+  }
+}
