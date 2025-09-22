@@ -57,7 +57,7 @@ jobs:
           $pct = ((int)$m["statements"]) > 0 ? ((int)$m["coveredstatements"] / (int)$m["statements"]) * 100 : 0;
           $pct = round($pct, 2);
           echo "coverage=$pct" . PHP_EOL;
-          ' >> $GITHUB_OUTPUT
+          ' >> $NOTIFY_GITHUB_OUTPUT
 
       - name: Update Coverage Badge (Gist)
         uses: schneegans/dynamic-badges-action@v1.7.0
