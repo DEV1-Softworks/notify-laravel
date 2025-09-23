@@ -8,7 +8,7 @@ use Illuminate\Notifications\Notification;
 
 class NotifyChannel
 {
-    public function __construct(private Notifier $notifier) {}
+    public function __construct(Notifier $notifier) {}
 
     public function send($notifiable, Notification $notification)
     {
