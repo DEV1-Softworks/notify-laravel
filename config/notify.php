@@ -18,6 +18,10 @@ return [
     | This option allows you to define the different Notify clients that can
     | be used by the framework. Adapter builds notify-core ClientRegistry with
     | these settings.
+    |
+    | You can add multiple clients with different configurations. In platform_defaults
+    | you can set default options for all clients, which can be overridden
+    | in each client configuration.
     */
     'clients' => [
         'fcm' => [
@@ -27,7 +31,27 @@ return [
             'scopes' => [
                 'https://www.googleapis.com/auth/firebase.messaging',
             ],
-            'timeout' => 10,
+            'timeout' => env('NOTIFY_FCM_TIMEOUT', 10),
+            'platform_defaults' => [
+                'android' => [
+                    'priority' => 'high',
+                    'ttl' => '3600s',
+                    'notification' => [
+                        'sound' => 'default',
+                        'color' => '#FF0000',
+                    ],
+                ],
+                'apns' => [
+                    'headers' => [
+                        'apns-priority' => '10',
+                    ],
+                    'payload' => [
+                        'aps' => [
+                            'sound' => 'default',
+                        ],
+                    ],
+                ],
+            ],
         ],
     ],
 

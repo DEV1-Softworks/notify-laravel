@@ -31,6 +31,7 @@ php artisan vendor:publish --tag=notify-config
 NOTIFY_DEFAULT=fcm
 NOTIFY_FCM_PROJECT_ID=your-firebase-project-id
 NOTIFY_FCM_SA_PATH=app/firebase/service-account.json
+NOTIFY_FCM_TIMEOUT=10 (optional, default 10)
 NOTIFY_LOG=true (optional, default true)
 ```
 
@@ -49,7 +50,19 @@ return [
             'scopes' => [
                 'https://www.googleapis.com/auth/firebase.messaging',
             ],
-            'timeout' => 10,
+            'timeout' => env('NOTIFY_FCM_TIMEOUT', 10),
+            'platform_defaults' => [
+                'android' => [
+                    // 'priority' => 'HIGH',
+                    // 'ttl' => 3600, // segundos (el transport lo convertirá a "3600s")
+                    // 'notification' => ['icon' => 'ic_stat_notify'],
+                ],
+                'apns' => [
+                    // 'headers' => ['apns-priority' => '10', 'apns-push-type' => 'alert'],
+                    // 'aps'     => ['sound' => 'default', 'mutable-content' => 1],
+                    // 'custom'  => [],
+                ],
+            ],
         ],
     ],
 
@@ -71,9 +84,27 @@ This one is the simplest way to use Notify in Laravel, just call the `Notify` fa
 ```php 
 use Notify;
 
+use Dev1\NotifyCore\Platform\AndroidOptions;
+use Dev1\NotifyCore\Platform\ApnsOptions;
+
+$android = AndroidOptions::make()
+    ->withChannelId('your_channel_id')
+    ->withPriority('HIGH')
+    ->withTtl(900);
+
+$apns = ApnsOptions::make()
+    ->withHeaders(['apns-priority' => '10', 'apns-push-type' => 'alert'])
+    ->withAps(['sound' => 'default']);
+
 $result = Notify::send(
     ['token' => 'AAA', 'topic' => null, 'condition' => null],
-    ['title' => 'Hola', 'body' => 'Mensaje de prueba', 'data' => ['foo' => 'bar']],
+    [
+        'title' => 'Hola',
+        'body' => 'Mensaje de prueba',
+        'data' => ['foo' => 'bar'],
+        'android' => $android,
+        'apns' => $apns,
+    ],
     'fcm'
 );
 
@@ -92,9 +123,22 @@ class OrderPaid extends Notification
 
     public function toDev1Notify($notifiable): array
     {
+        $token = $notifiable->fcm_token; // Assuming your User model has a fcm_token attribute
+        
+        // Platform specific options (optional)
+        $android = AndroidOptions::make()
+            ->withChannelId('your_channel_id')
+            ->withPriority('HIGH')
+            ->withNotification(['image' => 'https://cdn.example.com/paid.png']);
+
+        $apns = ApnsOptions::make()
+            ->withHeaders(['apns-priority' => '10', 'apns-push-type' => 'alert'])
+            ->withAps(['sound' => 'default']);
+
         return [
+            'client' => 'fcm',
             'target' => [
-                'token' => $notifiable->fcm_token, // DB field
+                'token' => , $token,
                 'topic' => null,
                 'condition' => null,
             ],
@@ -102,8 +146,9 @@ class OrderPaid extends Notification
                 'title' => 'Payment Received',
                 'body' => "Your order has been paid. Enjoy!",
                 'data' => ['order_id' => 123], // Optional custom data
+                'android' => $android,
+                'apns' => $apns,
             ],
-            'client' => 'fcm',
         ];
     }
 }

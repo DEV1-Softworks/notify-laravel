@@ -5,6 +5,7 @@ namespace Dev1\NotifyLaravel;
 use Dev1\NotifyCore\DTO\PushMessage;
 use Dev1\NotifyCore\DTO\PushResult;
 use Dev1\NotifyCore\DTO\PushTarget;
+use Dev1\NotifyCore\Platform\AndroidOptions;
 use Dev1\NotifyCore\Registry\ClientRegistry;
 use Dev1\NotifyLaravel\Channels\NotifyChannel;
 use Dev1\NotifyLaravel\Contracts\Notifier;
@@ -119,15 +120,18 @@ class NotifyServiceProvider extends ServiceProvider
         $this->app->bind(Notifier::class, function ($app) {
             $registry = $app->make(ClientRegistry::class);
             $default = (string) $app['config']->get('notify.default', 'fcm');
+            $clients = (array) $app['config']->get('notify.clients', []);
 
-            return new class($registry, $default) implements Notifier {
+            return new class($registry, $default, $clients) implements Notifier {
                 private $registry;
                 private $defaultClient;
+                private $clientsConfig;
 
-                public function __construct($registry, $defaultClient)
+                public function __construct($registry, $defaultClient, $clients)
                 {
                     $this->registry = $registry;
                     $this->defaultClient = $defaultClient;
+                    $this->clientsConfig = $clients;
                 }
 
                 public function send(array $target, array $payload, ?string $client = null): PushResult
@@ -140,6 +144,21 @@ class NotifyServiceProvider extends ServiceProvider
                         isset($payload['data']) ? $payload['data'] : null,
                     );
 
+                    $androidOverrides = $this->toAndroidArray($payload['android'] !== null ? $payload['android'] : []);
+                    $apnsOverrides    = $this->toApnsArray($payload['apns'] !== null ? $payload['apns'] : []);
+
+                    $platformDefaults = isset($this->clientsConfig[$name]['platform_defaults']) ? $this->clientsConfig[$name]['platform_defaults'] : [];
+                    $androidDefaults = isset($platformDefaults['android']) ? $platformDefaults['android'] : [];
+                    $apnsDefaults = isset($platformDefaults['apns']) ? $platformDefaults['apns'] : [];
+
+                    $androidMerged = array_replace_recursive($androidDefaults, $androidOverrides);
+                    $apnsMerged    = array_replace_recursive($apnsDefaults, $apnsOverrides);
+
+                    $message->platformOverrides = [
+                        'android' => $androidMerged,
+                        'apns' => $apnsMerged,
+                    ];
+
                     $target = new PushTarget(
                         $target['token'],
                         $target['topic'],
@@ -147,6 +166,42 @@ class NotifyServiceProvider extends ServiceProvider
                     );
 
                     return $this->registry->client($name)->send($message, $target);
+                }
+
+                private function toAndroidArray($options)
+                {
+                    if ($options instanceof AndroidOptions) return $options->toArray();
+                    return is_array($options) ? $options : [];
+                }
+
+                private function toApnsArray($options)
+                {
+                    if (is_array($options)) return $options;
+                    return [];
+                }
+
+                private function mergeApns(array $config, array $message)
+                {
+                    $configHeaders = (array) (isset($config['headers']) ? $config['headers'] : []);
+                    $configAps = (array) (isset($config['aps']) ? $config['aps'] : []);
+                    $configCustom = (array) (isset($config['custom']) ? $config['custom'] : []);
+
+                    $messageHeaders = (array) (isset($message['headers']) ? $message['headers'] : []);
+                    $payload = (array) (isset($message['payload']) ? $message['payload'] : []);
+                    $messageAps = (array) (isset($payload['aps']) ? $payload['aps'] : []);
+                    $messageCustom = $payload;
+
+                    unset($messageCustom['aps']);
+
+                    return [
+                        'headers' => array_replace($configHeaders, $messageHeaders),
+                        'payload' => array_replace_recursive(
+                            ['aps' => $configAps],
+                            ['aps' => $messageAps],
+                            $configCustom,
+                            $messageCustom
+                        ),
+                    ];
                 }
             };
         });
