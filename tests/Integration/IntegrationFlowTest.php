@@ -2,6 +2,8 @@
 
 namespace Dev1\NotifyLaravel\Tests\Integration;
 
+use Dev1\NotifyCore\Platform\AndroidOptions;
+use Dev1\NotifyCore\Platform\ApnsOptions;
 use Dev1\NotifyLaravel\Tests\TestCase;
 use Dev1\NotifyLaravel\Facades\Notify;
 use Dev1\NotifyCore\Registry\ClientRegistry;
@@ -11,7 +13,7 @@ use Illuminate\Notifications\Notification;
 
 class IntegrationFlowTest extends TestCase
 {
-    public function test_facade_and_channel_flow_with_fake_client()
+    public function test_facade_and_channel_flow_with_fake_client_default()
     {
         $pushResult = $this->createMock(\Dev1\NotifyCore\DTO\PushResult::class);
 
@@ -24,7 +26,8 @@ class IntegrationFlowTest extends TestCase
         $this->app['config']->set('notify.default', 'fake');
 
         $target  = ['token' => 'AAA', 'topic' => null, 'condition' => null];
-        $payload = ['title' => 'Hola', 'body' => 'Ping', 'data' => ['k' => 'v']];
+
+        $payload = ['title' => 'Hola', 'body' => 'Ping', 'data' => ['k' => 'v'], 'android' => [], 'apns' => []];
 
         $result = Notify::send($target, $payload, null);
 
