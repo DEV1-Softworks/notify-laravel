@@ -1,10 +1,9 @@
 <?php
 
-namespace Dev1\NotifyCore\Auth;
+namespace Dev1\NotifyLaravel\Tests;
 
 use Dev1\NotifyLaravel\Contracts\Notifier;
 use Dev1\NotifyLaravel\Facades\Notify;
-use Dev1\NotifyLaravel\Tests\TestCase;
 
 class NotifierFacadeTest extends TestCase
 {

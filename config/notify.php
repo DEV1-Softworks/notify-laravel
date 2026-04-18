@@ -31,26 +31,22 @@ return [
             'scopes' => [
                 'https://www.googleapis.com/auth/firebase.messaging',
             ],
-            'timeout' => env('NOTIFY_FCM_TIMEOUT', 10),
+
+            // Seconds subtracted from OAuth token expiry to consider it expired.
+            'cache_leeway' => env('NOTIFY_FCM_CACHE_LEEWAY', 30),
+
+            // Optional PSR-16 cache for OAuth tokens (shares tokens across processes/workers).
+            // Set to a Laravel cache store name (e.g. 'redis', 'file') to enable; null disables caching.
+            'cache_store' => env('NOTIFY_FCM_CACHE_STORE'),
+            'cache_key'   => env('NOTIFY_FCM_CACHE_KEY'),
+
+            // Retry behavior on transient 5xx / 429 / transport errors.
+            'max_retries'         => env('NOTIFY_FCM_MAX_RETRIES', 2),
+            'retry_base_delay_ms' => env('NOTIFY_FCM_RETRY_BASE_DELAY_MS', 200),
+
             'platform_defaults' => [
-                'android' => [
-                    'priority' => 'high',
-                    'ttl' => '3600s',
-                    'notification' => [
-                        'sound' => 'default',
-                        'color' => '#FF0000',
-                    ],
-                ],
-                'apns' => [
-                    'headers' => [
-                        'apns-priority' => '10',
-                    ],
-                    'payload' => [
-                        'aps' => [
-                            'sound' => 'default',
-                        ],
-                    ],
-                ],
+                'android' => [],
+                'apns' => [],
             ],
         ],
     ],

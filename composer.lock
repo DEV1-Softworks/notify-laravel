@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b92f0f99140f493dc5a6413cc0eedfc5",
+    "content-hash": "0fd222ed1f7d325791896e6d54502f93",
     "packages": [
         {
             "name": "brick/math",
@@ -137,28 +137,32 @@
         },
         {
             "name": "dev1/notify-core",
-            "version": "1.1.0",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/DEV1-Softworks/notify-core.git",
-                "reference": "6f7da9db6513eb26a0679fafd4e4df3faf37580c"
+                "reference": "cd995217faf02eb29f07854ed90e8e8dc2c9fe0f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/DEV1-Softworks/notify-core/zipball/6f7da9db6513eb26a0679fafd4e4df3faf37580c",
-                "reference": "6f7da9db6513eb26a0679fafd4e4df3faf37580c",
+                "url": "https://api.github.com/repos/DEV1-Softworks/notify-core/zipball/cd995217faf02eb29f07854ed90e8e8dc2c9fe0f",
+                "reference": "cd995217faf02eb29f07854ed90e8e8dc2c9fe0f",
                 "shasum": ""
             },
             "require": {
                 "php": ">=7.4 <8.5",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
-                "psr/log": "^1.1"
+                "psr/log": "^1.1 || ^2.0 || ^3.0"
             },
             "require-dev": {
                 "nyholm/psr7": "^1.8",
                 "phpunit/phpunit": "^9.6",
+                "psr/simple-cache": "^1.0",
                 "symfony/http-client": "^5.4 || ^6.0 || ^7.0"
+            },
+            "suggest": {
+                "psr/simple-cache": "Share Google OAuth tokens across requests (PSR-16)."
             },
             "type": "library",
             "autoload": {
@@ -190,7 +194,7 @@
                 "issues": "https://github.com/DEV1-Softworks/notify-core/issues",
                 "source": "https://github.com/DEV1-Softworks/notify-core"
             },
-            "time": "2025-09-23T06:32:31+00:00"
+            "time": "2026-04-18T21:27:36+00:00"
         },
         {
             "name": "dflydev/dot-access-data",
@@ -7982,5 +7986,5 @@
         "php": "^7.4|^8.0"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }

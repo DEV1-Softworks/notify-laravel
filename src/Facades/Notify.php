@@ -6,7 +6,7 @@ use Dev1\NotifyLaravel\Contracts\Notifier;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static PushResult send(string $channel, array $payload, ?string $client = null)
+ * @method static \Dev1\NotifyCore\DTO\PushResult send(array $target, array $payload, ?string $client = null)
  */
 class Notify extends Facade
 {

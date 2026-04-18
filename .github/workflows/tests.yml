@@ -2,9 +2,11 @@ name: tests
 
 on:
   push:
-    branches: ["**"]
+    branches:
+      - master
   pull_request:
-    branches: ["**"]
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
@@ -69,3 +71,10 @@ jobs:
           label: coverage
           message: ${{ steps.coverage.outputs.coverage }}%
           color: ${{ steps.coverage.outputs.coverage < 80 && 'red' || (steps.coverage.outputs.coverage < 90 && 'yellow' || 'brightgreen') }}
+
+      - name: Enforce minimum coverage (>= 80%)
+        run: |
+          COVERAGE="${{ steps.coverage.outputs.coverage }}"
+          echo "Measured coverage: ${COVERAGE}%"
+          php -r 'exit(((float)$argv[1] >= 80.0) ? 0 : 1);' "$COVERAGE" \
+            || { echo "::error::Coverage ${COVERAGE}% is below the 80% threshold."; exit 1; }
