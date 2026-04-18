@@ -73,4 +73,69 @@ class NotifyChannelTest extends TestCase
                 && $e->notification instanceof Notification;
         });
     }
+
+    public function test_channel_noops_when_notification_has_no_to_dev1_notify()
+    {
+        Event::fake();
+
+        $this->app->bind(Notifier::class, function () {
+            return new class implements Notifier {
+                public function send(array $target, array $payload, ?string $client = null): \Dev1\NotifyCore\DTO\PushResult
+                {
+                    \PHPUnit\Framework\Assert::fail('Notifier::send must not be called when toDev1Notify is missing.');
+                }
+            };
+        });
+
+        $notification = new class extends Notification {
+            public function via($notifiable)
+            {
+                return ['dev1-notify'];
+            }
+        };
+
+        $notifiable = new class {
+            use \Illuminate\Notifications\Notifiable;
+            public $fcm_token = 'AAA';
+        };
+
+        $notifiable->notify($notification);
+
+        Event::assertNotDispatched(NotifySent::class);
+        $this->assertTrue(true);
+    }
+
+    public function test_channel_noops_when_target_is_missing()
+    {
+        Event::fake();
+
+        $this->app->bind(Notifier::class, function () {
+            return new class implements Notifier {
+                public function send(array $target, array $payload, ?string $client = null): \Dev1\NotifyCore\DTO\PushResult
+                {
+                    \PHPUnit\Framework\Assert::fail('Notifier::send must not be called when target is missing.');
+                }
+            };
+        });
+
+        $notification = new class extends Notification {
+            public function via($notifiable)
+            {
+                return ['dev1-notify'];
+            }
+            public function toDev1Notify($notifiable)
+            {
+                return ['payload' => ['title' => 'x', 'body' => 'y']];
+            }
+        };
+
+        $notifiable = new class {
+            use \Illuminate\Notifications\Notifiable;
+            public $fcm_token = 'AAA';
+        };
+
+        $notifiable->notify($notification);
+
+        Event::assertNotDispatched(NotifySent::class);
+    }
 }
