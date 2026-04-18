@@ -6,6 +6,7 @@ use Dev1\NotifyCore\DTO\PushMessage;
 use Dev1\NotifyCore\DTO\PushResult;
 use Dev1\NotifyCore\DTO\PushTarget;
 use Dev1\NotifyCore\Platform\AndroidOptions;
+use Dev1\NotifyCore\Platform\ApnsOptions;
 use Dev1\NotifyCore\Registry\ClientRegistry;
 use Dev1\NotifyLaravel\Channels\NotifyChannel;
 use Dev1\NotifyLaravel\Contracts\Notifier;
@@ -36,20 +37,22 @@ class NotifyServiceProvider extends ServiceProvider
                 $driver = isset($clientConfig['driver']) ? $clientConfig['driver'] : null;
 
                 if ($driver === 'fcm_v1') {
-                    if (!isset($clientConfig['service_account_json'])) {
+                    if (empty($clientConfig['service_account_json'])) {
                         throw new \RuntimeException("You must upload and declare the Firebase JSON credentials for enabling FCM v1.");
-                    };
+                    }
 
-                    if (!isset($clientConfig['project_id'])) {
+                    if (empty($clientConfig['project_id'])) {
                         throw new \RuntimeException("You must declare the Firebase Project ID.");
                     }
 
-                    $sa = json_decode(file_get_contents($clientConfig['service_account_json']), true);
+                    $sa = $this->loadServiceAccount($clientConfig['service_account_json']);
+
+                    if (empty($sa['client_email']) || empty($sa['private_key'])) {
+                        throw new \RuntimeException('Service account JSON must contain client_email and private_key.');
+                    }
 
                     $scopes  = isset($clientConfig['scopes']) ? $clientConfig['scopes'] : ['https://www.googleapis.com/auth/firebase.messaging'];
-                    $timeout = isset($clientConfig['timeout']) ? (int) $clientConfig['timeout'] : 10;
-                    $project = isset($clientConfig['project_id']) ? $clientConfig['project_id'] : null;
-
+                    $project = $clientConfig['project_id'];
 
                     $http = new Psr18Client();
                     $psr17 = new Psr17Factory();
@@ -62,48 +65,52 @@ class NotifyServiceProvider extends ServiceProvider
                         throw new \RuntimeException('GoogleServiceAccountTokenProvider not found at core.');
                     }
 
-                    $config = [
+                    $tokenConfig = [
                         'client_email' => $sa['client_email'],
                         'private_key' => $sa['private_key'],
                         'scope' => $scopes,
-                        'cache_leeway' => $timeout,
                     ];
+
+                    foreach (['cache_leeway', 'cache_key', 'max_retries', 'retry_base_delay_ms'] as $passthrough) {
+                        if (isset($clientConfig[$passthrough])) {
+                            $tokenConfig[$passthrough] = $clientConfig[$passthrough];
+                        }
+                    }
+
+                    $cache = null;
+                    if (!empty($clientConfig['cache_store'])) {
+                        $cache = $app['cache']->store($clientConfig['cache_store']);
+                    }
 
                     $tokenProvider = new $tpClass(
                         $http,
                         $requestFactory,
                         $streamFactory,
                         $logger,
-                        $config,
+                        $tokenConfig,
+                        $cache
                     );
 
-                    $client = null;
+                    $driverClass = '\\Dev1\\NotifyCore\\Drivers\\FcmHttpV1Client';
+                    if (!class_exists($driverClass)) {
+                        throw new \RuntimeException('FCM v1 client not found (FcmHttpV1Client)');
+                    }
 
-                    $try = [
-                        '\\Dev1\\NotifyCore\\Drivers\\FcmHttpV1Client',
-                    ];
-
-                    foreach ($try as $driverClass) {
-                        if (class_exists($driverClass)) {
-                            $driverConfig = [
-                                'project_id' => $project,
-                            ];
-
-                            $client = new $driverClass(
-                                $http,
-                                $requestFactory,
-                                $streamFactory,
-                                $tokenProvider,
-                                $logger,
-                                $driverConfig,
-                            );
-                            break;
+                    $driverCfg = ['project_id' => $project];
+                    foreach (['max_retries', 'retry_base_delay_ms', 'endpoint'] as $passthrough) {
+                        if (isset($clientConfig[$passthrough])) {
+                            $driverCfg[$passthrough] = $clientConfig[$passthrough];
                         }
                     }
 
-                    if (!$client) {
-                        throw new \RuntimeException('FCM v1 client not found (FcmHttpV1Client)');
-                    }
+                    $client = new $driverClass(
+                        $http,
+                        $requestFactory,
+                        $streamFactory,
+                        $tokenProvider,
+                        $logger,
+                        $driverCfg
+                    );
 
                     $registry->register($name, $client);
                     continue;
@@ -138,70 +145,45 @@ class NotifyServiceProvider extends ServiceProvider
                 {
                     $name = $client ?: $this->defaultClient;
 
+                    $androidOverrides = $this->toAndroidArray($payload['android'] ?? []);
+                    $apnsOverrides    = $this->toApnsArray($payload['apns'] ?? []);
+
+                    $platformDefaults = $this->clientsConfig[$name]['platform_defaults'] ?? [];
+                    $androidDefaults  = $platformDefaults['android'] ?? [];
+                    $apnsDefaults     = $platformDefaults['apns'] ?? [];
+
                     $message = new PushMessage(
-                        $payload['title'],
-                        $payload['body'],
-                        isset($payload['data']) ? $payload['data'] : null,
+                        (string) ($payload['title'] ?? ''),
+                        (string) ($payload['body'] ?? ''),
+                        $payload['data'] ?? null,
+                        [
+                            'android' => array_replace_recursive($androidDefaults, $androidOverrides),
+                            'apns'    => array_replace_recursive($apnsDefaults, $apnsOverrides),
+                        ]
                     );
 
-                    $androidOverrides = $this->toAndroidArray($payload['android'] !== null ? $payload['android'] : []);
-                    $apnsOverrides    = $this->toApnsArray($payload['apns'] !== null ? $payload['apns'] : []);
-
-                    $platformDefaults = isset($this->clientsConfig[$name]['platform_defaults']) ? $this->clientsConfig[$name]['platform_defaults'] : [];
-                    $androidDefaults = isset($platformDefaults['android']) ? $platformDefaults['android'] : [];
-                    $apnsDefaults = isset($platformDefaults['apns']) ? $platformDefaults['apns'] : [];
-
-                    $androidMerged = array_replace_recursive($androidDefaults, $androidOverrides);
-                    $apnsMerged    = array_replace_recursive($apnsDefaults, $apnsOverrides);
-
-                    $message->platformOverrides = [
-                        'android' => $androidMerged,
-                        'apns' => $apnsMerged,
-                    ];
-
-                    $target = new PushTarget(
-                        $target['token'],
-                        $target['topic'],
-                        $target['condition'],
-                    );
-
-                    return $this->registry->client($name)->send($message, $target);
+                    return $this->registry->client($name)->send($message, $this->buildTarget($target));
                 }
 
-                private function toAndroidArray($options)
+                private function buildTarget(array $target): PushTarget
+                {
+                    $token     = !empty($target['token'])     ? (string) $target['token']     : null;
+                    $topic     = !empty($target['topic'])     ? (string) $target['topic']     : null;
+                    $condition = !empty($target['condition']) ? (string) $target['condition'] : null;
+
+                    return new PushTarget($token, $topic, $condition);
+                }
+
+                private function toAndroidArray($options): array
                 {
                     if ($options instanceof AndroidOptions) return $options->toArray();
                     return is_array($options) ? $options : [];
                 }
 
-                private function toApnsArray($options)
+                private function toApnsArray($options): array
                 {
-                    if (is_array($options)) return $options;
-                    return [];
-                }
-
-                private function mergeApns(array $config, array $message)
-                {
-                    $configHeaders = (array) (isset($config['headers']) ? $config['headers'] : []);
-                    $configAps = (array) (isset($config['aps']) ? $config['aps'] : []);
-                    $configCustom = (array) (isset($config['custom']) ? $config['custom'] : []);
-
-                    $messageHeaders = (array) (isset($message['headers']) ? $message['headers'] : []);
-                    $payload = (array) (isset($message['payload']) ? $message['payload'] : []);
-                    $messageAps = (array) (isset($payload['aps']) ? $payload['aps'] : []);
-                    $messageCustom = $payload;
-
-                    unset($messageCustom['aps']);
-
-                    return [
-                        'headers' => array_replace($configHeaders, $messageHeaders),
-                        'payload' => array_replace_recursive(
-                            ['aps' => $configAps],
-                            ['aps' => $messageAps],
-                            $configCustom,
-                            $messageCustom
-                        ),
-                    ];
+                    if ($options instanceof ApnsOptions) return $options->toArray();
+                    return is_array($options) ? $options : [];
                 }
             };
         });
@@ -217,5 +199,29 @@ class NotifyServiceProvider extends ServiceProvider
             ->extend('dev1-notify', function ($app) {
                 return $app->make(NotifyChannel::class);
             });
+    }
+
+    /**
+     * Resolves the service-account source to a decoded array.
+     * Accepts either a filesystem path or an inline JSON string.
+     *
+     * @return array<string,mixed>
+     */
+    private function loadServiceAccount(string $source): array
+    {
+        $raw = is_file($source) ? @file_get_contents($source) : $source;
+
+        if ($raw === false || $raw === '') {
+            throw new \RuntimeException('Could not read service account JSON from: ' . $source);
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (!is_array($decoded)) {
+            $err = function_exists('json_last_error_msg') ? json_last_error_msg() : 'invalid JSON';
+            throw new \RuntimeException('Invalid service account JSON: ' . $err);
+        }
+
+        return $decoded;
     }
 }
