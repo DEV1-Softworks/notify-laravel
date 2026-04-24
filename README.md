@@ -7,7 +7,7 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/dev1/notify-laravel.svg)](https://packagist.org/packages/dev1/notify-laravel)
 [![License](https://img.shields.io/packagist/l/dev1/notify-laravel.svg)](LICENSE)
 
-Adapter package to integrate [DEV1 Notify Core](https://packagist.org/packages/dev1/notify-core) into **Laravel 8 – 13** (PHP 7.4 – 8.4).
+Adapter package to integrate [DEV1 Notify Core](https://packagist.org/packages/dev1/notify-core) into **Laravel 8 – 13** (PHP 7.4 – 8.5).
 
 Provides:
 - Service provider + auto-discovered `Notify` facade.
