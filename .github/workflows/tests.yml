@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ["8.4"]
+        php: ["8.4", "8.5"]
 
     steps:
       - name: Checkout
@@ -62,7 +62,8 @@ jobs:
           ' >> $GITHUB_OUTPUT
 
       - name: Update Coverage Badge (Gist)
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        # Only the 8.4 matrix job writes the badge to avoid races between matrix runners.
+        if: ${{ matrix.php == '8.4' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
