@@ -4,11 +4,11 @@ namespace Dev1\NotifyLaravel\Tests\Support;
 
 use Dev1\NotifyLaravel\Support\LaravelLogger;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
+use Psr\Log\AbstractLogger;
 
 class LaravelLoggerTest extends TestCase
 {
-    public function test_delegates_every_psr_level_to_a_psr_logger()
+    public function test_routes_every_psr_level_through_the_wrapped_logger()
     {
         $spy = new SpyPsrLogger();
         $logger = new LaravelLogger($spy);
@@ -24,10 +24,11 @@ class LaravelLoggerTest extends TestCase
         $logger->log('info', 'l', ['k' => 'v']);
 
         $this->assertSame(
-            ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug', 'log'],
+            ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug', 'info'],
             array_column($spy->calls, 'level')
         );
         $this->assertSame(['x' => 1], $spy->calls[0]['context']);
+        $this->assertSame('l', $spy->calls[8]['message']);
         $this->assertSame(['k' => 'v'], $spy->calls[8]['context']);
     }
 
@@ -45,9 +46,10 @@ class LaravelLoggerTest extends TestCase
 
         $this->assertCount(1, $inner->calls);
         $this->assertSame('info', $inner->calls[0]['level']);
+        $this->assertSame('via-getLogger', $inner->calls[0]['message']);
     }
 
-    public function test_wraps_non_psr_logger_with_closure_fallback()
+    public function test_wraps_non_psr_logger_and_dispatches_to_named_methods()
     {
         $sink = new class {
             public $calls = [];
@@ -65,33 +67,25 @@ class LaravelLoggerTest extends TestCase
         $logger = new LaravelLogger($sink);
 
         $logger->emergency('e');
-        $logger->alert('a');
-        $logger->critical('c');
-        $logger->error('er');
-        $logger->warning('w');
-        $logger->notice('n');
-        $logger->info('i');
-        $logger->debug('d');
-        $logger->log('info', 'l', ['k' => 'v']);
+        $logger->info('i', ['k' => 'v']);
+        $logger->log('custom-level', 'x');
 
-        $this->assertCount(9, $sink->calls);
-        $this->assertSame('emergency', $sink->calls[0][0]);
-        $this->assertSame('log', $sink->calls[8][0]);
-        $this->assertSame('info', $sink->calls[8][1]);
+        $this->assertSame(['emergency', 'e', []],          $sink->calls[0]);
+        $this->assertSame(['info', 'i', ['k' => 'v']],     $sink->calls[1]);
+        $this->assertSame(['log', 'custom-level', 'x', []], $sink->calls[2]);
     }
 }
 
-class SpyPsrLogger implements LoggerInterface
+class SpyPsrLogger extends AbstractLogger
 {
     public array $calls = [];
 
-    public function emergency($message, array $context = []): void { $this->calls[] = ['level' => 'emergency', 'message' => $message, 'context' => $context]; }
-    public function alert($message, array $context = []): void     { $this->calls[] = ['level' => 'alert',     'message' => $message, 'context' => $context]; }
-    public function critical($message, array $context = []): void  { $this->calls[] = ['level' => 'critical',  'message' => $message, 'context' => $context]; }
-    public function error($message, array $context = []): void     { $this->calls[] = ['level' => 'error',     'message' => $message, 'context' => $context]; }
-    public function warning($message, array $context = []): void   { $this->calls[] = ['level' => 'warning',   'message' => $message, 'context' => $context]; }
-    public function notice($message, array $context = []): void    { $this->calls[] = ['level' => 'notice',    'message' => $message, 'context' => $context]; }
-    public function info($message, array $context = []): void      { $this->calls[] = ['level' => 'info',      'message' => $message, 'context' => $context]; }
-    public function debug($message, array $context = []): void     { $this->calls[] = ['level' => 'debug',     'message' => $message, 'context' => $context]; }
-    public function log($level, $message, array $context = []): void { $this->calls[] = ['level' => 'log',     'message' => $message, 'context' => $context, 'actual_level' => $level]; }
+    public function log($level, $message, array $context = []): void
+    {
+        $this->calls[] = [
+            'level'   => (string) $level,
+            'message' => (string) $message,
+            'context' => $context,
+        ];
+    }
 }
